@@ -1,50 +1,48 @@
 jenkins:
   mode: NORMAL
-  numExecutors: 0
+  numExecutors: 2  # Enable controller executors for post-build tasks
+  remotingSecurity:
+    enabled: false
 
   securityRealm:
     local:
       allowsSignup: false
       users:
-        - id: ${JENKINS_ADMIN_USERNAME}
-          password: ${JENKINS_ADMIN_PASSWORD}
-        - id: ${JENKINS_AGENT_USERNAME}
-          password: ${JENKINS_AGENT_PASSWORD}
+        - id: "camelbot"
+          password: "${readFile:/run/secrets/jenkins_admin_password}"
+        - id: "frank"
+          password: "agentpass"
 
   authorizationStrategy:
-    roleBased:
-      roles:
-        global:
-          - name: camelbot
-            permissions:
-              - Overall/Administer
-            entries:
-              - user: ${JENKINS_ADMIN_USERNAME}
-          - name: agent
-            permissions:
-              - Overall/Read
-              - Agent/Connect
-              - Agent/Disconnect
-              - Agent/Build
-            entries:
-              - user: ${JENKINS_AGENT_USERNAME}
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:camelbot"
+        - "Overall/Read:frank"
+        - "Agent/Connect:frank"
+        - "Agent/Disconnect:frank" 
+        - "Agent/Build:frank"
+        - "Job/Build:frank"
+        - "Job/Read:frank"
 
+  # Keep permanent agents for traditional builds
   nodes:
     - permanent:
-        name: agent1
-        launcher: inbound
-        remoteFS: /home/jenkins/agent
+        name: "agent1"
+        remoteFS: "/home/jenkins/agent"
+        launcher:
+          inbound:
+            webSocket: true
+            workDirSettings:
+              disabled: false
+              failIfWorkDirIsMissing: false
+              internalDir: "remoting"
     - permanent:
-        name: agent2
-        launcher: inbound
-        remoteFS: /home/jenkins/agent
-
-tool:
-  nodejs:
-    installations:
-      - name: Node 22.x
-        properties:
-          - installSource:
-              installers:
-                - nodeJSInstaller:
-                    id: 22.16.0
+        name: "agent2"
+        remoteFS: "/home/jenkins/agent"
+        launcher:
+          inbound:
+            webSocket: true
+            workDirSettings:
+              disabled: false
+              failIfWorkDirIsMissing: false
+              internalDir: "remoting"
