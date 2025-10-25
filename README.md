@@ -1,25 +1,36 @@
 # Camelback CI - Jenkins Controller & Agent Setup
 
-A comprehensive Jenkins CI/CD setup using Docker Compose with Configuration as Code (CasC), featuring automated controller-agent architecture for scalable build environments.
+A comprehensive Jenkins CI/CD setup using Docker Compose with Configuration as Code (CasC), featuring automated controller-agent architecture with **dynamic Docker agent provisioning** for scalable build environments.
 
 ## 🚀 Features
 
-- **Jenkins Controller** with Configuration as Code (CasC)
-- **Jenkins Agent** with automatic connection and Docker support
-- **Pre-configured Plugins** for modern CI/CD workflows
+- **Jenkins Controller** with Configuration as Code (CasC) and Docker integration
+- **Permanent Jenkins Agents** with automatic connection and Docker support
+- **Dynamic Docker Agents** with automatic provisioning and cleanup
+- **Multi-Environment Support** (Java, Node.js, Python) via dynamic agents
+- **Pre-configured Plugins** for modern CI/CD workflows including Docker support
 - **Role-based Security** with predefined users and permissions
-- **Automated Testing** with comprehensive validation script
+- **Automated Testing** with comprehensive validation scripts
 - **Docker-based** for easy deployment and scaling
+- **Resource Optimization** through on-demand agent provisioning
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────┐    ┌─────────────────────┐
-│   Jenkins Controller│    │   Jenkins Agent     │
-│   - Web UI (8080)   │◄──►│   - Build Executor  │
-│   - Agent Port      │    │   - Docker Support  │
-│   - CasC Config     │    │   - Auto-connect    │
-└─────────────────────┘    └─────────────────────┘
+┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+│   Jenkins Controller│    │   Jenkins Agent1    │    │   Dynamic Docker    │
+│   - Web UI (8080)   │◄──►│   - Build Executor  │    │   Agents            │
+│   - Agent Port      │    │   - Docker Support  │    │   - On-Demand       │
+│   - CasC Config     │    │   - Auto-connect    │    │   - Multi-Env       │
+│   + Docker CLI      │    └─────────────────────┘    │   - Auto-Cleanup    │
+└─────────────────────┘                               └─────────────────────┘
+         │                                                       ▲
+         ▼                                                       │
+┌─────────────────────┐                                         │
+│   Docker Host       │─────────────────────────────────────────┘
+│   - Shared Socket   │
+│   - Image Management│
+└─────────────────────┘
 ```
 
 ## 📋 Prerequisites
@@ -55,9 +66,44 @@ make test
 # Run comprehensive tests
 ./test-jenkins.sh
 
+# Test dynamic agent functionality
+./test-dynamic-agent.sh
+
 # Or quick test
 make test-quick
 ```
+
+## 🐳 Dynamic Agent Usage
+
+### Automatic Agent Provisioning
+Jenkins automatically creates and destroys Docker-based agents for builds, providing clean environments and optimal resource utilization.
+
+### Example Pipeline
+```groovy
+pipeline {
+    agent {
+        docker {
+            image 'openjdk:17-jdk-slim'
+            args '--user root'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'java -version'
+                sh 'echo "Hello from dynamic agent!"'
+                // Agent automatically destroyed after pipeline
+            }
+        }
+    }
+}
+```
+
+### Available Agent Environments
+- **Java**: `openjdk:17-jdk-slim`, `openjdk:11-jdk-slim`
+- **Node.js**: `node:18-slim`, `node:16-slim`
+- **Python**: `python:3.11-slim`, `python:3.9-slim`
+- **Custom**: Any public Docker image
 
 ## 📁 Project Structure
 
@@ -71,11 +117,17 @@ camelback-ci/
 │   ├── Dockerfile              # Agent Docker image
 │   └── agent.sh                # Agent connection script
 ├── pipelines/                  # Pipeline definitions
-│   └── first.groovy           # Sample pipeline
+│   ├── sample-pipeline.groovy     # Full CI/CD pipeline (permanent agent)
+│   ├── dynamic-agent-pipeline.groovy # Basic dynamic agent demo
+│   ├── advanced-dynamic-agent.groovy # Advanced dynamic agent pipeline
+│   └── first.groovy               # Simple hello world pipeline
+├── jenkins-jobs/              # Job DSL definitions
+│   └── pipeline-jobs.groovy      # Pipeline job creation scripts
 ├── secrets/                    # Credentials and secrets
 │   └── camelback_admin.txt    # Admin password
 ├── docker-compose.yml          # Service orchestration
 ├── test-jenkins.sh            # Comprehensive test suite
+├── test-dynamic-agent.sh      # Dynamic agent testing
 ├── Makefile                   # Build and test commands
 └── TEST_DOCUMENTATION.md      # Detailed testing guide
 ```
@@ -88,13 +140,22 @@ camelback-ci/
 - **Configuration**: Via `jenkins.yaml` (CasC)
 - **Plugins**: Auto-installed from `plugins.txt`
 - **Security**: Role-based with predefined users
+- **Docker Integration**: Docker CLI and socket access for dynamic agents
+- **Executors**: 2 built-in executors for controller tasks
 
-### Jenkins Agent
+### Jenkins Agents
 
+#### Permanent Agents
 - **Base Image**: `jenkins/inbound-agent:jdk17`
-- **Connection**: Automatic via JNLP
+- **Connection**: Automatic via JNLP with WebSocket
 - **Tools**: Docker support, curl
-- **Authentication**: Username/password based
+- **Authentication**: Secret-based with automatic retrieval
+
+#### Dynamic Docker Agents
+- **Provisioning**: Automatic on-demand creation
+- **Lifecycle**: Created → Execute → Destroyed automatically
+- **Environments**: Java, Node.js, Python, and custom images
+- **Resource Management**: No permanent resource consumption
 
 ### Users & Permissions
 
@@ -136,12 +197,15 @@ The project includes a robust testing framework:
 ### Test Coverage
 
 - ✅ Docker daemon and Compose availability
-- ✅ Service startup and health checks
+- ✅ Service startup and health checks  
 - ✅ Authentication for admin and agent users
 - ✅ Configuration as Code (CasC) loading
-- ✅ Plugin installation verification
-- ✅ Agent node configuration and connectivity
+- ✅ Plugin installation verification (including docker-workflow)
+- ✅ Permanent agent node configuration and connectivity
 - ✅ Job creation and execution on agents
+- ✅ **Dynamic agent provisioning and cleanup**
+- ✅ **Docker integration and image management**
+- ✅ **Multi-environment agent testing**
 
 ### Expected Results
 
