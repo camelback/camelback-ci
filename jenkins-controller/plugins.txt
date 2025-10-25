@@ -6,3 +6,4 @@ job-dsl:latest
 matrix-auth:latest
 authorize-project:latest
 locale:latest
+role-strategy:latest
