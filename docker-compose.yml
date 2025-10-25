@@ -12,10 +12,6 @@ services:
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - CASC_JENKINS_CONFIG=/usr/share/jenkins/ref/jenkins.yaml
-      - JENKINS_ADMIN_USERNAME=camelbot
-      - JENKINS_ADMIN_PASSWORD_FILE=/run/secrets/jenkins_admin_password
-      - JENKINS_AGENT_USERNAME=frank
-      - JENKINS_AGENT_PASSWORD=agentpass
     secrets:
       - source: jenkins_admin_password
         target: /run/secrets/jenkins_admin_password
@@ -36,4 +32,4 @@ volumes:
 
 secrets:
   jenkins_admin_password:
-    file: ./secrets/camelback_admin.txt
+    file: ./secrets/camelbot_admin.txt
