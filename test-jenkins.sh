@@ -145,6 +145,15 @@ test_jenkins_authentication() {
 test_jenkins_configuration() {
     print_header "Testing Jenkins Configuration"
     
+    print_test "Jenkins initialization status"
+    local init_status=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/api/json?tree=quietingDown,mode")
+    if echo "$init_status" | grep -q '"mode":"NORMAL"'; then
+        print_success "Jenkins is fully initialized"
+    else
+        print_failure "Jenkins may still be initializing"
+        print_info "Current status: $(echo "$init_status" | head -c 100)"
+    fi
+    
     print_test "Configuration as Code (CasC) loading"
     local casc_status=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/configuration-as-code/")
     if echo "$casc_status" | grep -q "configuration-as-code"; then
@@ -163,10 +172,16 @@ test_jenkins_configuration() {
     
     print_test "Role-based authorization"
     local whoami=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/me/api/json")
-    if echo "$whoami" | grep -q "\"id\":\"$ADMIN_USER\""; then
+    if echo "$whoami" | grep -q "AccessDeniedException"; then
+        print_failure "Role-based authorization issue: Access denied - user not properly authenticated"
+        print_info "Jenkins may not be fully initialized or CasC not loaded yet"
+    elif echo "$whoami" | grep -q "\"id\":\"$ADMIN_USER\""; then
         print_success "Role-based authorization working"
+    elif echo "$whoami" | grep -q "error"; then
+        print_failure "Role-based authorization issue: $(echo "$whoami" | grep -o 'error[^"]*')"
     else
-        print_failure "Role-based authorization issue"
+        print_failure "Role-based authorization issue: unexpected response"
+        print_info "Response: $(echo "$whoami" | head -c 200)..."
     fi
 }
 
@@ -343,7 +358,7 @@ main() {
     # Run tests - continue even if some fail
     test_docker_setup || true
     test_services_startup || true
-    sleep 30  # Give services time to fully initialize
+    sleep 60  # Give Jenkins more time to fully initialize and load CasC config
     test_jenkins_authentication || true
     test_jenkins_configuration || true
     test_plugins || true
