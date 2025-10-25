@@ -37,4 +37,4 @@ volumes:
 
 secrets:
   jenkins_admin_password:
-    file: ./secrets/admin_password.txt
+    file: ./secrets/camelback_admin.txt
