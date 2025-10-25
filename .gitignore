@@ -1,1 +1,24 @@
-secrets
+# Secrets and credentials (except required admin password)
+secrets/
+!secrets/camelbot_admin.txt
+
+# Jenkins plugins (downloaded automatically)
+jenkins-controller/plugins/
+*.jpi
+
+# Downloaded artifacts
+agent.jar
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
