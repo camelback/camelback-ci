@@ -22,6 +22,23 @@ AGENT_PASS="agentpass"
 MAX_WAIT_TIME=300  # 5 minutes
 CHECK_INTERVAL=10
 
+# Spinner for visual feedback
+show_spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\\'
+    printf "Working: "
+    while kill -0 $pid 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+    echo ""
+}
+
 # Test results
 TESTS_PASSED=0
 TESTS_FAILED=0
@@ -57,15 +74,22 @@ wait_for_service() {
     local elapsed=0
     
     print_info "Waiting for $service_name to be ready..."
+    printf "Progress: "
     
     while [ $elapsed -lt $timeout ]; do
         if curl -s -f "$url" > /dev/null 2>&1; then
+            echo "" # New line after progress dots
             print_success "$service_name is ready"
             return 0
         fi
         sleep $CHECK_INTERVAL
         elapsed=$((elapsed + CHECK_INTERVAL))
-        echo -n "."
+        printf "█"
+        
+        # Show elapsed time every 30 seconds
+        if [ $((elapsed % 30)) -eq 0 ]; then
+            printf " (${elapsed}s/${timeout}s) "
+        fi
     done
     
     print_failure "$service_name failed to start within $timeout seconds"
@@ -98,9 +122,12 @@ test_services_startup() {
     print_header "Starting Jenkins Services"
     
     print_info "Starting services with docker-compose..."
+    printf "Starting containers: "
     if docker-compose up -d; then
+        echo "" # New line
         print_success "Docker Compose services started"
     else
+        echo "" # New line
         print_failure "Failed to start Docker Compose services"
         return 1
     fi
@@ -212,7 +239,14 @@ test_agent_nodes() {
         print_info "Agent1 is offline (expected if not connected yet)"
         
         # Wait a bit for agent to connect
-        sleep 30
+        print_info "Waiting for agent1 to connect..."
+        printf "Progress: "
+        for i in $(seq 1 6); do
+            sleep 5
+            printf "█"
+        done
+        echo "" # New line
+        
         agent1_status=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/computer/agent1/api/json")
         if echo "$agent1_status" | grep -q '"offline":false'; then
             print_success "Agent1 connected after waiting"
@@ -285,21 +319,32 @@ echo "Agent test completed successfully"</command>
     <buildWrappers/>
 </project>'
 
-    # Create the job
+    # Create the job with CSRF token
+    local csrf_header=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/crumbIssuer/api/xml?xpath=//crumbRequestField" | sed 's/<[^>]*>//g')
+    local csrf_value=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/crumbIssuer/api/xml?xpath=//crumb" | sed 's/<[^>]*>//g')
     if curl -s -X POST -u "$ADMIN_USER:$ADMIN_PASS" \
         -H "Content-Type: application/xml" \
+        -H "$csrf_header: $csrf_value" \
         -d "$job_config" \
         "$JENKINS_URL/createItem?name=test-agent-job" > /dev/null; then
         print_success "Test job created successfully"
         
-        # Build the job
+        # Build the job with CSRF token
         print_test "Triggering test job build"
         if curl -s -X POST -u "$ADMIN_USER:$ADMIN_PASS" \
+            -H "$csrf_header: $csrf_value" \
             "$JENKINS_URL/job/test-agent-job/build" > /dev/null; then
             print_success "Test job build triggered"
             
             # Wait for build to complete and check result
-            sleep 20
+            print_info "Waiting for build to complete..."
+            printf "Build progress: "
+            for i in $(seq 1 4); do
+                sleep 5
+                printf "█"
+            done
+            echo "" # New line
+            
             local build_result=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" \
                 "$JENKINS_URL/job/test-agent-job/1/api/json")
             
@@ -322,7 +367,10 @@ cleanup_test_resources() {
     print_header "Cleaning Up Test Resources"
     
     print_info "Removing test job..."
+    local csrf_header=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/crumbIssuer/api/xml?xpath=//crumbRequestField" | sed 's/<[^>]*>//g')
+    local csrf_value=$(curl -s -u "$ADMIN_USER:$ADMIN_PASS" "$JENKINS_URL/crumbIssuer/api/xml?xpath=//crumb" | sed 's/<[^>]*>//g')
     curl -s -X POST -u "$ADMIN_USER:$ADMIN_PASS" \
+        -H "$csrf_header: $csrf_value" \
         "$JENKINS_URL/job/test-agent-job/doDelete" > /dev/null || true
 }
 
@@ -358,7 +406,16 @@ main() {
     # Run tests - continue even if some fail
     test_docker_setup || true
     test_services_startup || true
-    sleep 60  # Give Jenkins more time to fully initialize and load CasC config
+    
+    # Give Jenkins more time to fully initialize and load CasC config
+    print_info "Waiting for Jenkins to fully initialize and load configuration..."
+    printf "Initialization progress: "
+    for i in $(seq 1 12); do
+        sleep 5
+        printf "█"
+    done
+    echo "" # New line
+    
     test_jenkins_authentication || true
     test_jenkins_configuration || true
     test_plugins || true
