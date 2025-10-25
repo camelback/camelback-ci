@@ -9,9 +9,11 @@ services:
     volumes:
       - jenkins-data:/var/jenkins_home
       - ./jenkins-controller:/usr/share/jenkins/ref/
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - CASC_JENKINS_CONFIG=/usr/share/jenkins/ref/jenkins.yaml
+    user: root
     secrets:
       - source: jenkins_admin_password
         target: /run/secrets/jenkins_admin_password
